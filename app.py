@@ -13,7 +13,7 @@ https://dashboard.alwaysai.co/docs/application_development/changing_the_model.ht
 To change the engine and accelerator, follow this guide:
 https://dashboard.alwaysai.co/docs/application_development/changing_the_engine_and_accelerator.html
 """
-def swap_faces(obox, nbox, image1, image2):
+def swap_faces(path, image1, image2):
     """[summary]
 
     Args:
@@ -26,7 +26,16 @@ def swap_faces(obox, nbox, image1, image2):
         numpy array: The new numpy array with the new face on the old face
     """
     face = edgeiq.resize(edgeiq.cutout_image(image1, obox), nbox.width, nbox.height)
+
+    celebrity_frame = cv2.imread(path)#Celebrity-Swapper image loaded of celebrity by retrieving its path
+                # detect human faces
+    results = facial_detector.detect_objects(
+                        frame, confidence_level=.4)
+    celebrity_results = facial_detector.detect_objects(celebrity_frame, confidence_level = 0.4)#Celebrity-Swapper will return the ObjectDetectionResults Object for all potential Objects in the frame
+    celebrity_box = celebrity_results.predictions[0].box #Celebrity-Swapper Gives us the bounding box for our celebrity
+
     image2[nbox.start_y:nbox.start_y + face.shape[0], nbox.start_x:nbox.start_x + face.shape[1]] = face
+    print(image1.ndim)
     return image2              
 
 def main():
@@ -40,6 +49,8 @@ def main():
     print("Accelerator: {}\n".format(facial_detector.accelerator))
     print("Model:\n{}\n".format(facial_detector.model_id))
 
+    image_path = r"C:\Users\Aidan Rooney\OneDrive\Desktop\AlwaysAIPrograms\celebrity-swapper\images\kanyeWestPng.png"#Celebrity-Swapper retrieves path for images
+    print("Images:\n{}\n".format(image_path))#Celebrity-Swapper Displays Video filenames
     fps = edgeiq.FPS()
 
     try:    
@@ -49,10 +60,26 @@ def main():
             fps.start()
             while True:
                 frame = video_stream.read()
-
+                celebrity_frame = cv2.imread(image_path)#Celebrity-Swapper image loaded of celebrity by retrieving its path
                 # detect human faces
                 results = facial_detector.detect_objects(
                         frame, confidence_level=.4)
+                celebrity_results = facial_detector.detect_objects(celebrity_frame, confidence_level = 0.4)#Celebrity-Swapper will return the ObjectDetectionResults Object for all potential Objects in the frame
+                celebrity_box = celebrity_results.predictions[0].box #Celebrity-Swapper Gives us the bounding box for our celebrity
+                ########
+                face = edgeiq.resize(edgeiq.cutout_image(image1, obox), nbox.width, nbox.height)
+
+                celebrity_frame = cv2.imread(path)#Celebrity-Swapper image loaded of celebrity by retrieving its path
+                            # detect human faces
+                results = facial_detector.detect_objects(
+                                    frame, confidence_level=.4)
+                celebrity_results = facial_detector.detect_objects(celebrity_frame, confidence_level = 0.4)#Celebrity-Swapper will return the ObjectDetectionResults Object for all potential Objects in the frame
+                celebrity_box = celebrity_results.predictions[0].box #Celebrity-Swapper Gives us the bounding box for our celebrity
+
+                image2[nbox.start_y:nbox.start_y + face.shape[0], nbox.start_x:nbox.start_x + face.shape[1]] = face
+
+                ######
+
 
                 # append each predication to the text output
                 pred = results.predictions
@@ -69,9 +96,9 @@ def main():
 
                 if len(pred) > 0:
                     # swap the last face with the first face
-                    obox = pred[len(pred) - 1].box
+                    obox = celebrity_box #Celebrity-Swapper Replace with a bounding box of Kanye West 
                     nbox = pred[0].box
-                    frame2 = swap_faces(obox, nbox, frame, frame2)
+                    frame2 = swap_faces(image_path, frame, frame2)
 
                 # send the image frame and the predictions to the output stream
                 frame = edgeiq.markup_image(
