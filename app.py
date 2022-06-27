@@ -13,30 +13,7 @@ https://dashboard.alwaysai.co/docs/application_development/changing_the_model.ht
 To change the engine and accelerator, follow this guide:
 https://dashboard.alwaysai.co/docs/application_development/changing_the_engine_and_accelerator.html
 """
-def swap_faces(path, image1, image2):
-    """[summary]
-
-    Args:
-        obox (BoundingBox): The original box
-        nbox (BoundingBox): The new box
-        image1 (numpy array): The original frame
-        image2 (numpy array): The new frame
-
-    Returns:
-        numpy array: The new numpy array with the new face on the old face
-    """
-    face = edgeiq.resize(edgeiq.cutout_image(image1, obox), nbox.width, nbox.height)
-
-    celebrity_frame = cv2.imread(path)#Celebrity-Swapper image loaded of celebrity by retrieving its path
-                # detect human faces
-    results = facial_detector.detect_objects(
-                        frame, confidence_level=.4)
-    celebrity_results = facial_detector.detect_objects(celebrity_frame, confidence_level = 0.4)#Celebrity-Swapper will return the ObjectDetectionResults Object for all potential Objects in the frame
-    celebrity_box = celebrity_results.predictions[0].box #Celebrity-Swapper Gives us the bounding box for our celebrity
-
-    image2[nbox.start_y:nbox.start_y + face.shape[0], nbox.start_x:nbox.start_x + face.shape[1]] = face
-    print(image1.ndim)
-    return image2              
+            
 
 def main():
     # first make a detector to detect facial objects
@@ -53,6 +30,43 @@ def main():
     print("Images:\n{}\n".format(image_path))#Celebrity-Swapper Displays Video filenames
     fps = edgeiq.FPS()
 
+
+    def bbox_cropper(image, bbox):
+        h,w = image.shape[:2]
+        bbox.start_x = max(0, bbox.start_x)
+        bbox.start_y = max(0, bbox.start_y)
+        bbox.end_x = min(w, bbox.end_x)
+        bbox.end_y = min(h, bbox.end_y)
+
+        return bbox
+
+
+
+    def swap_faces(cbox, nbox, path, image1, image2):
+        """[summary]
+
+        Args:
+            obox (BoundingBox): Will change in this function to the celebrity box
+            nbox (BoundingBox): The original bounding box of the first person in the camera
+            image1 (numpy array): The original frame
+            image2 (numpy array): The new frame
+
+        Returns:
+            numpy array: The new numpy array with the new face on the old face
+        """
+        #Crop bounding box to size of the image
+        celebrity_frame = cv2.imread(path)#Celebrity-Swapper image loaded of celebrity by retrieving its path    
+        celebrity_results = facial_detector.detect_objects(celebrity_frame, confidence_level = 0.4)#Celebrity-Swapper will return the ObjectDetectionResults Object for all potential Objects in the frame
+        cbox = celebrity_results.predictions[0].box #Celebrity-Swapper Gives us the bounding box for our celebrity
+        print("bounding box:",cbox)
+        print("shape of the image :",image1.shape)
+        cbox = bbox_cropper(celebrity_frame, cbox)
+
+        print("cbox after cropping :",cbox)
+        face = edgeiq.resize(edgeiq.cutout_image(celebrity_frame, cbox), nbox.width , nbox.height) #Needs to be a numpy array of kanye for the image
+        image2[nbox.start_y:nbox.start_y + face.shape[0], nbox.start_x:nbox.start_x + face.shape[1]] = face
+        return image2              
+
     try:    
         # loop detection
         with edgeiq.WebcamVideoStream(cam=0) as video_stream, edgeiq.Streamer() as streamer:
@@ -60,25 +74,11 @@ def main():
             fps.start()
             while True:
                 frame = video_stream.read()
-                celebrity_frame = cv2.imread(image_path)#Celebrity-Swapper image loaded of celebrity by retrieving its path
+                print(frame.ndim)
                 # detect human faces
                 results = facial_detector.detect_objects(
                         frame, confidence_level=.4)
-                celebrity_results = facial_detector.detect_objects(celebrity_frame, confidence_level = 0.4)#Celebrity-Swapper will return the ObjectDetectionResults Object for all potential Objects in the frame
-                celebrity_box = celebrity_results.predictions[0].box #Celebrity-Swapper Gives us the bounding box for our celebrity
-                ########
-                face = edgeiq.resize(edgeiq.cutout_image(image1, obox), nbox.width, nbox.height)
-
-                celebrity_frame = cv2.imread(path)#Celebrity-Swapper image loaded of celebrity by retrieving its path
-                            # detect human faces
-                results = facial_detector.detect_objects(
-                                    frame, confidence_level=.4)
-                celebrity_results = facial_detector.detect_objects(celebrity_frame, confidence_level = 0.4)#Celebrity-Swapper will return the ObjectDetectionResults Object for all potential Objects in the frame
-                celebrity_box = celebrity_results.predictions[0].box #Celebrity-Swapper Gives us the bounding box for our celebrity
-
-                image2[nbox.start_y:nbox.start_y + face.shape[0], nbox.start_x:nbox.start_x + face.shape[1]] = face
-
-                ######
+                
 
 
                 # append each predication to the text output
@@ -96,9 +96,9 @@ def main():
 
                 if len(pred) > 0:
                     # swap the last face with the first face
-                    obox = celebrity_box #Celebrity-Swapper Replace with a bounding box of Kanye West 
+                    obox = pred[len(pred) - 1].box
                     nbox = pred[0].box
-                    frame2 = swap_faces(image_path, frame, frame2)
+                    frame2 = swap_faces(obox, nbox, image_path, frame, frame2)
 
                 # send the image frame and the predictions to the output stream
                 frame = edgeiq.markup_image(
@@ -118,6 +118,7 @@ def main():
         print("approx. FPS: {:.2f}".format(fps.compute_fps()))
 
         print("Program Ending")
+        exit()
 
 
 if __name__ == "__main__":
